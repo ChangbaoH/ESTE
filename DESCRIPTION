@@ -1,0 +1,17 @@
+Package: este
+Type: Package
+Title: Estimate the sequence and time of events
+Version: 0.2.0
+Author: person(given = "Changbao", family = "Hu", role = c("aut", "cre"), email = "1437894182@qq.com")
+Maintainer: Hu Changbao <1437894182@qq.com>
+Description: ESTE performs the improved CT-CBN algorithm to estimate the sequence of events and MH-Sampling to estimate the time of events.
+License: GPL (>= 2)
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    Rcpp
+LinkingTo: Rcpp, BH, RcppEigen
+Depends: relations, parallel
+SystemRequirements: C++11
+NeedsCompilation: yes
+RoxygenNote: 7.3.2
