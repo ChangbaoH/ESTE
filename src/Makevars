@@ -1,0 +1,5 @@
+# Using C++11 code
+CXX_STD = CXX11
+
+PKG_CXXFLAGS += -fopenmp
+PKG_LIBS += -fopenmp
