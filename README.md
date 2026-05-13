@@ -24,7 +24,7 @@ ESTE is an R package that implements the improved CBN algorithm to estimate the 
 
 ## 3. Example
 ### Instructions to Run Demo
-The package includes example data and scripts in the `example/` directory.
+The package includes example data and scripts in the `example/` and `data/` directory.
 ### Dataset
 The real dataset is provided in `data/cancer_data/` containing genotype matrices for various cancer types:
 - Breast-AdenoCA
@@ -38,6 +38,30 @@ The real dataset is provided in `data/cancer_data/` containing genotype matrices
 - Uterus-AdenoCA
   
 ## 4. Instructions for Use
+### Data Preparation
+ESTE requires genotype data in a specific format:
+```r
+# Genotype matrix format:
+# Rows: samples/patients
+# Columns: genetic events (binary: 1 = observed, 0 = not observed)
+# Last column: dataset identifier (optional)
+
+# Example:
+genotype_data <- read.csv("your_genotype_data.csv", row.names = 1)
+```
+
+### Basic Usage Workflow
+
+#### Step 1: Prepare Input Matrices
+```r
+# Define dataset and event set configurations
+setD <- matrix(c(0, nrow(genotype_data)-1), nrow = 1)  # Dataset range
+eventD <- matrix(c(0, ncol(genotype_data)-2), nrow = 1)  # Event range
+isF <- matrix(1L, nrow = 1, ncol = 1)  # Data filled indicator
+isCE <- matrix(1L, nrow = 1, ncol = 1)  # Calculate epsilon indicator
+eps <- matrix(0.05, nrow = 1, ncol = 1)  # Initial epsilon estimate
+```
+
 ### Running on Your Data
 1. **Prepare your genotype data**:
    - Format as CSV with events as columns and samples as rows
