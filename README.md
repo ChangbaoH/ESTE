@@ -164,26 +164,142 @@ compatibility <- is_Compatible(
 )
 ```
 
+---
 
-### Basic Usage Workflow
+## 5. Reproduction Instructions
 
-#### Step 1: Prepare Input Matrices
-```r
-# Define dataset and event set configurations
-setD <- matrix(c(0, nrow(genotype_data)-1), nrow = 1)  # Dataset range
-eventD <- matrix(c(0, ncol(genotype_data)-2), nrow = 1)  # Event range
-isF <- matrix(1L, nrow = 1, ncol = 1)  # Data filled indicator
-isCE <- matrix(1L, nrow = 1, ncol = 1)  # Calculate epsilon indicator
-eps <- matrix(0.05, nrow = 1, ncol = 1)  # Initial epsilon estimate
+To reproduce the results from the associated research paper:
+
+### Step 1: Download Full Dataset
+```bash
+# Download the complete ICGC dataset (if not already present)
+# The dataset should be placed in data/ICGC/ directory
 ```
 
-### Running on Your Data
-1. **Prepare your genotype data**:
-   - Format as CSV with events as columns and samples as rows
-   - Binary encoding: 1 = event observed, 0 = not observed
-   - Include dataset and sample identifiers
-2. **Basic usage**:
-   please see example/baselineTestExample_este.R
+### Step 2: Run Analysis Scripts
+```r
+# Load required packages
+library(este)
+library(parallel)
+library(data.table)
+library(dplyr)
+
+# Run pan-cancer CBN analysis
+source("example/panCancerCBNandMH-Sampling.R")
+
+# Run fitness inference
+source("example/panCancerImmuneFitnessInference.R")
+
+# Run single-cell RNA analysis
+source("example/scRNA_Analysis.R")
+```
+
+### Step 3: Parameter Settings
+
+The following parameters were used in the original analysis:
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `Fine_Tune_Num` | 2 | Number of fine-tuning iterations |
+| `threshold` | 0.0001 | Poset inference threshold |
+| `threshold2` | 0.01 | Tolerance threshold |
+| `sampling` | "add-remove" | Hidden genotype sampling method |
+| `maxIter` | 100 | EM algorithm iterations |
+| `L` | 100 | Number of E-step samples |
+| `tol` | 0.001 | Convergence tolerance |
+
+### Step 4: Output Interpretation
+
+**Partial Order Matrix**:
+- `poset[i,j] = 1` indicates event i must occur before event j
+- Diagonal elements are always 0
+- The matrix represents a directed acyclic graph (DAG)
+
+**Lambda Values**:
+- Higher lambda = faster event occurrence
+- Lambda values are relative rates
+
+**Timing Estimates**:
+- Estimated time of each event occurrence
+- Relative timing between events indicates progression order
+
+---
+
+## 6. Package Structure
+
+```
+este/
+├── R/                    # R source code
+│   ├── este.R            # Main functions (epsilon, poset, lambda)
+│   ├── baseFunction.R    # Utility functions (topological sort, etc.)
+│   ├── baselineTest.R    # Simulation and testing functions
+│   └── RcppExports.R     # Rcpp function exports
+├── src/                  # C++ source code
+│   ├── este.cpp          # Main C++ implementation
+│   ├── ct-cbn.h          # CT-CBN algorithm header
+│   ├── gmm.h             # Gaussian Mixture Model header
+│   ├── lambdaCal.h       # Lambda calculation header
+│   ├── interfaceFun.h    # R-C++ interface functions
+│   └── rng_utils.hpp     # Random number generation utilities
+├── data/                 # Example datasets
+│   └── cancer_data/      # Cancer genotype matrices
+├── example/              # Example scripts
+├── man/                  # R documentation files
+├── DESCRIPTION           # Package metadata
+├── NAMESPACE             # Export declarations
+└── README.md             # This file
+```
+
+---
+
+## 7. API Reference
+
+### Core Functions
+
+| Function | Description |
+|----------|-------------|
+| `estimate_Epsilon()` | Estimate error rates for hidden CBN model |
+| `estimate_Epsilon_based_on_Poset_and_Lambda()` | Epsilon estimation with known poset/lambda |
+| `estimate_Epsilon_ForMulti()` | Multi-dataset epsilon estimation |
+| `find_Poset()` | Infer partial order from genotype data |
+| `find_Poset_ForVote()` | Consensus poset via voting |
+| `estimate_Lambda()` | Estimate event rate parameters |
+| `estimate_Lambda_ForMulti()` | Multi-dataset lambda estimation |
+| `is_Compatible()` | Check genotype-poset compatibility |
+| `sample_Age_T()` | MH sampling for event timing |
+| `sample_Age_TLW()` | Lightweight timing sampling |
+
+### Utility Functions
+
+| Function | Description |
+|----------|-------------|
+| `topological_Sort()` | Perform topological sort on poset |
+| `random_Poset()` | Generate random poset structure |
+| `rateTimeHelp()` | Convert lambda to time bounds |
+| `find_most_Compatible_Genotype_by_Flipping()` | Find compatible genotypes |
+| `donor_Pair_Genotype_Filter()` | Filter donor pair genotypes |
+| `GammaCluster()` | Gaussian Mixture Model clustering |
+
+### Data Generation Functions
+
+| Function | Description |
+|----------|-------------|
+| `simulation_Data_Generate()` | Generate simulated genotype data |
+| `simulation_Time_Data_Generate()` | Generate simulated timing data |
+
+---
+
+## 8. Citation
+
+If you use ESTE in your research, please cite:
+
+```
+Hu, C. (2024). ESTE: Estimate the Sequence and Timing of Events. 
+R package version 0.2.0. https://github.com/yourusername/este
+```
+
+---
+
    
 ## Support
 For questions and support, contact: Hu Changbao <1437894182@qq.com>
