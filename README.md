@@ -292,9 +292,24 @@ fit$lambdaS <- 1.0
 fit$poset <- poset
 ```
 
+## 5. Extended Analysis (Project-Specific)
+
+After obtaining the CBN results (poset, epsilon, lambda) from the basic workflow, you can perform additional project-specific analyses using the scripts in the `example/` directory. These analyses are tailored to specific research questions and require additional data sources.
+
+### 5.1 Absolute Time Calibration with MH Sampling
+
+**Script**: `example/panCancerCBNandMH-Sampling.R`
+
+### 5.2 Immune Fitness Inference
+
+**Script**: `example/panCancerImmuneFitnessInference.R`
+
+### 5.3 Single-Cell RNA Analysis
+
+**Script**: `example/scRNA_Analysis.R`
 
 
-## 5. Package Structure
+## 6. Package Structure
 
 ```
 este/
@@ -321,7 +336,7 @@ este/
 
 ---
 
-## 6. API Reference
+## 7. API Reference
 
 ### Core Functions
 
