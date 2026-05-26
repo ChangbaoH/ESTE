@@ -2,6 +2,8 @@
 
 ESTE is an R package that implements the improved CBN algorithm to estimate the sequence of events and MH-Sampling to estimate the timing of events. This package is specifically designed for cancer genomic data analysis, providing tools for inferring the temporal order of genetic alterations in cancer progression.
 
+
+
 ## 1. System Requirements
 
 ### Software Dependencies
@@ -25,13 +27,19 @@ ESTE is an R package that implements the improved CBN algorithm to estimate the 
 
 - No special hardware requirements
 
+  
+
 ## 2. Installation Guide
 
 ### Installation Instructions
 
 1. **Install R and required dependencies** :
+
 2. **Install ESTE package from source**:
+
 3. **Load the package**:
+
+   
 
 ## 3. Example
 
@@ -44,16 +52,28 @@ The package includes example data and scripts in the `example/` and `data/` dire
 The real dataset is provided in `data/cancer_data/` containing genotype matrices for various cancer types:
 
 - Breast-AdenoCA
+
 - CNS-GBM  
+
 - ColoRect-AdenoCA
+
 - Liver-HCC
+
 - Lung-AdenoCA
+
 - Lung-SCC
+
 - Prost-AdenoCA
+
 - Skin-Melanoma
+
 - Uterus-AdenoCA
 
+  
+
 ## 4. Instructions for Use
+
+#### Please check example\baselineTestExample_este.R
 
 ### Generate Simulated Data
 
@@ -93,12 +113,24 @@ sim_data <- simulation_Data_Generate(
 **Output Structure**:
 
 - `obs_events`: Matrix of observed genotypes with noise (rows = samples, cols = events)
+
 - `hidden_genotypes`: True underlying genotypes without noise
-- `poset`: Ground truth partial order matrix
-- `eps`: Error rate matrix (rows = datasets, cols = event types)
-- `lambdas`: Event occurrence rates
-- `T_sampling`: Sampling times
-- `T_events`: Event occurrence times
+
+- `poset`: Ground truth partial order matrix (adjacency matrix)
+
+- `eps`: True error rate matrix (rows = datasets, cols = event types)
+
+- `eps_obs`: Observed error rate matrix calculated from simulated data
+
+- `lambdas`: Event occurrence rates (inverse of mean occurrence times)
+
+- `T_sampling`: Sampling times for each sample (time when the sample was taken)
+
+- `T_events`: Individual event occurrence times (N samples × n events)
+
+- `T_sum_events`: Cumulative event times considering poset constraints (earliest possible occurrence time)
+
+  
 
 ### Data Preparation
 
@@ -114,192 +146,155 @@ ESTE requires genotype data in a specific format:
 genotype_data <- read.csv("your_genotype_data.csv", row.names = 1)
 ```
 
+
+
 ### Basic Usage Workflow
 
-#### Step 1: Prepare Input Matrices
+#### Please check example\panCancerCBNandMH-Sampling.R
+
+
+#### Step 1: Prepare Input Data
+
+Convert your genotype data to the required matrix format:
 
 ```r
-# Define dataset and event set configurations
-setD <- matrix(c(0, nrow(genotype_data)-1), nrow = 1)  # Dataset range
-eventD <- matrix(c(0, ncol(genotype_data)-2), nrow = 1)  # Event range
-isF <- matrix(1L, nrow = 1, ncol = 1)  # Data filled indicator
-isCE <- matrix(1L, nrow = 1, ncol = 1)  # Calculate epsilon indicator
-eps <- matrix(0.05, nrow = 1, ncol = 1)  # Initial epsilon estimate
+# Example: Extract driver genes and chromosome information
+# Assuming Genotype is a data frame with columns for each gene/mutation
+driver_genes <- c("TP53", "KRAS", "EGFR", "MYC")  # List of driver genes
+driver_chr <- c("chr17", "chr12", "chr7", "chr8")  # Corresponding chromosomes
+
+# Convert to matrix format (samples as rows, events as columns)
+mat <- as.matrix(Genotype[, c(driver_genes, driver_chr)])
+
+# Alternatively, use simulated data from simulation_Data_Generate()
+# mat <- sim_data$obs_events  # From simulated data
+# Ensure the matrix contains integer values (0/1)
 ```
 
-#### Step 2: Estimate Error Rates (epsilon)
+
+#### Step 2: Prepare Input Matrices
+
+For multi-dataset analysis with different event types:
 
 ```r
-# Fast epsilon estimation
-epsilon_result <- estimate_Epsilon(
-  pat = as.integer(genotype_data),
-  isF = isF,
-  isCE = isCE,
-  eps = eps,
-  setD = setD,
-  eventD = eventD,
-  threshold = 0.05,
-  thrds = 4  # Number of parallel threads
+# Get unique datasets
+dataSet_unique <- unique(Genotype[,"dataSet"])
+
+# Configure isF matrix (data filled indicator)
+isF <- matrix(as.integer(c(1)), nrow = length(dataSet_unique), ncol = 2)
+
+# Configure setD matrix (dataset ranges, 0-indexed)
+setD <- as.data.frame(array(NA, dim = c(length(dataSet_unique), 2)))
+for (l in 1:length(dataSet_unique)) {
+  setD[l, 1] <- min(which(Genotype[,"dataSet"] == dataSet_unique[l]) - 1)
+  setD[l, 2] <- max(which(Genotype[,"dataSet"] == dataSet_unique[l]) - 1)
+}
+setD <- as.matrix(setD)
+for (l in 1:dim(setD)[2]) {
+  setD[, l] <- as.integer(setD[, l])
+}
+
+# Configure eventD matrix (event type ranges)
+# Event types: driver_genes (type 1) and driver_chr (type 2)
+eventD <- as.data.frame(array(NA, dim = c(2, 2)))
+eventD[1, 1] <- 1  # Start index of driver genes
+eventD[1, 2] <- length(driver_genes)  # End index of driver genes
+eventD[2, 1] <- length(driver_genes) + 1  # Start index of driver chromosomes
+eventD[2, 2] <- length(driver_genes) + length(driver_chr)  # End index
+eventD <- as.matrix(eventD)
+for (l in 1:dim(eventD)[2]) {
+  eventD[, l] <- as.integer(eventD[, l])
+}
+
+# Prepare final genotype matrix with first column as all 1s
+Geno <- cbind(rep(as.integer(1), dim(mat)[1]), mat)
+Geno <- as.data.frame(Geno)
+for (l in 1:dim(Geno)[2]) {
+  Geno[, l] <- as.integer(Geno[, l])
+}
+Geno <- as.matrix(Geno)
+
+# Set poset size parameter
+poset_np <- min(length(c(driver_genes, driver_chr)), 8)
+```
+
+
+#### Step 3: Estimate Error Rates (epsilon)
+
+```r
+# Multi-dataset epsilon estimation using estimate_Epsilon_ForMulti()
+eps <- estimate_Epsilon_ForMulti(
+  pat = Geno,                    # Observed genotypes matrix (rows=samples, cols=events), first column must be all 1s
+  isF = isF,                     # Matrix indicating whether data in dataset[i] and eventset[j] is filled (1=True, 0=False)
+  setD = setD,                   # Dataset index description matrix (rows=datasets, cols=[start, end])
+  eventD = eventD,               # Eventset index description matrix (rows=eventsets, cols=[start, end])
+  multi_thrds = 1,               # Number of threads for multi-dataset parallel processing
+  threshold = 0.05,              # Threshold for epsilon estimate
+  threshold1 = as.integer(8),    # Threshold for epsilon estimation method selection (default: 7)
+  n_p = as.integer(8),           # Max number of events used for epsilon estimation
+  T = 10.0,                      # Temperature of simulated annealing algorithm
+  N_iter = 200L,                 # Max iteration number of simulated annealing algorithm
+  lambdaS = 1.0,                 # Rate of the sampling process
+  thrds = as.integer(10)         # Number of threads for parallel execution
 )
 ```
 
-#### Step 3: Infer Partial Order (Poset)
+#### Step 4: Infer Partial Order (Poset)
 
 ```r
-# Find poset with fine-tuning
-poset_result <- find_Poset(
-  pat = as.integer(genotype_data),
-  isF = isF,
-  isCE = isCE,
-  eps = epsilon_result,
-  setD = setD,
-  eventD = eventD,
-  Fine_Tune_Num = 2L,
-  threshold = 0.0001,
-  thrds = 4
+# Find consensus poset using voting with find_Poset_ForVote()
+poset <- find_Poset_ForVote(
+  pat = Geno,                    # Observed genotypes matrix
+  isF = isF,                     # Matrix indicating whether data is filled
+  eps = eps,                     # Error rate matrix from Step 3
+  setD = setD,                   # Dataset index description matrix
+  eventD = eventD,               # Eventset index description matrix
+  Fine_Tune_Num = as.integer(2L),# Fine tune number for more accurate poset (best=2)
+  vote_size = 5L,                # Number of votes to find consensus poset
+  vote_threshold = 0.5,          # Threshold in the vote (0-1)
+  vote_thrds = 1L,               # Number of threads in the vote
+  threshold = 0.0001,            # Threshold for determining partial order relationships (filter false positives)
+  threshold2 = 0.01,             # Threshold considering tolerance (should be >= threshold)
+  n_p = as.integer(poset_np),    # Number of events during fine-tune
+  is_update_eps = FALSE,         # Whether update eps in fine tune (experience shows FALSE is better)
+  T = 10,                        # Temperature of simulated annealing algorithm
+  N_iter = 200L,                 # Max iteration number of simulated annealing algorithm
+  lambdaS = 1.0,                 # Rate of the sampling process
+  thrds = as.integer(20)         # Number of threads for parallel execution
 )
 ```
 
-#### Step 4: Estimate Rate Parameters (lambda)
+#### Step 5: Estimate Rate Parameters (lambda)
 
 ```r
-# Estimate lambda using EM algorithm
-lambda_result <- estimate_Lambda(
-  pat = as.integer(genotype_data),
-  poset = poset_result,
-  isF = isF,
-  eps = epsilon_result,
-  setD = setD,
-  eventD = eventD,
-  sampling = "add-remove",
-  maxIter = 100L,
-  thrds = 4
-)
-```
-
-#### Step 5: Sample Event Timing (Optional)
-
-```r
-# MH sampling for event timing estimation
-timing_result <- sample_Age_T(
-  data = genotype_data,
-  alpha = 1.0,
-  beta = 1.0,
-  lambda = lambda_result$lambda,
-  maxSampleIter = 1000,
-  rateE1 = 0.01,
-  thrds = 4,
-  seed = 12345
-)
-```
-
-### Advanced Usage
-
-#### Multiple Datasets and Event Sets
-
-```r
-# For multi-dataset analysis
-epsilon_multi <- estimate_Epsilon_ForMulti(
-  pat = as.integer(genotype_data),
-  isF = isF_matrix,
-  isCE = isCE_matrix,
-  eps = eps_matrix,
-  setD = setD_matrix,
-  eventD = eventD_matrix,
-  multi_thrds = 4,
-  thrds = 2
+# Estimate lambda using EM algorithm with estimate_Lambda()
+fit <- estimate_Lambda(
+  pat = Geno,                    # Observed genotypes matrix
+  poset = poset,                 # Partial order adjacency matrix from Step 4
+  isF = isF,                     # Matrix indicating whether data is filled
+  eps = eps,                     # Error rate matrix
+  setD = setD,                   # Dataset index description matrix
+  eventD = eventD,               # Eventset index description matrix
+  lambdaS = 1.0,                 # Rate of the sampling process
+  L = 100L,                      # Number of samples drawn from proposal in E-step
+  sampling = 'add-remove',       # Sampling scheme: "forward", "add-remove", "backward", "bernoulli", or "pool"
+  maxIter = 500L,                # Maximum number of EM iterations
+  updateStepSize = 20L,          # EM steps after which L is doubled if convergence not reached
+  tol = 0.001,                   # Convergence tolerance for error rate and rate parameters
+  maxLambda = 1e6,               # Upper bound on the value of rate parameters
+  neighborhoodDist = 1L,         # Hamming distance for "backward" sampling
+  is_update_eps = FALSE,         # Whether update eps during lambda estimation (experience shows FALSE is better)
+  thrds = as.integer(20)         # Number of threads for parallel execution
 )
 
-# Voting for consensus poset
-poset_vote <- find_Poset_ForVote(
-  pat = as.integer(genotype_data),
-  isF = isF,
-  eps = epsilon_multi,
-  setD = setD,
-  eventD = eventD,
-  vote_size = 5L,
-  vote_threshold = 0.5,
-  thrds = 4
-)
+# Store additional results
+fit$lambdaS <- 1.0
+fit$poset <- poset
 ```
 
-#### Compatibility Check
 
-```r
-# Check if genotypes are compatible with poset
-compatibility <- is_Compatible(
-  genotype = genotype_matrix,
-  poset = poset_result
-)
-```
 
----
-
-## 5. Reproduction Instructions
-
-To reproduce the results from the associated research paper:
-
-### Step 1: Download Full Dataset
-
-```bash
-# Download the complete ICGC dataset (if not already present)
-# The dataset should be placed in data/ICGC/ directory
-```
-
-### Step 2: Run Analysis Scripts
-
-```r
-# Load required packages
-library(este)
-library(parallel)
-library(data.table)
-library(dplyr)
-
-# Run pan-cancer CBN analysis
-source("example/panCancerCBNandMH-Sampling.R")
-
-# Run fitness inference
-source("example/panCancerImmuneFitnessInference.R")
-
-# Run single-cell RNA analysis
-source("example/scRNA_Analysis.R")
-```
-
-### Step 3: Parameter Settings
-
-The following parameters were used in the original analysis:
-
-| Parameter       | Value        | Description                      |
-| --------------- | ------------ | -------------------------------- |
-| `Fine_Tune_Num` | 2            | Number of fine-tuning iterations |
-| `threshold`     | 0.0001       | Poset inference threshold        |
-| `threshold2`    | 0.01         | Tolerance threshold              |
-| `sampling`      | "add-remove" | Hidden genotype sampling method  |
-| `maxIter`       | 100          | EM algorithm iterations          |
-| `L`             | 100          | Number of E-step samples         |
-| `tol`           | 0.001        | Convergence tolerance            |
-
-### Step 4: Output Interpretation
-
-**Partial Order Matrix**:
-
-- `poset[i,j] = 1` indicates event i must occur before event j
-- Diagonal elements are always 0
-- The matrix represents a directed acyclic graph (DAG)
-
-**Lambda Values**:
-
-- Higher lambda = faster event occurrence
-- Lambda values are relative rates
-
-**Timing Estimates**:
-
-- Estimated time of each event occurrence
-- Relative timing between events indicates progression order
-
----
-
-## 6. Package Structure
+## 5. Package Structure
 
 ```
 este/
@@ -326,7 +321,7 @@ este/
 
 ---
 
-## 7. API Reference
+## 6. API Reference
 
 ### Core Functions
 
@@ -363,16 +358,7 @@ este/
 
 ---
 
-## 8. Citation
 
-If you use ESTE in your research, please cite:
-
-```
-Hu, C. (2024). ESTE: Estimate the Sequence and Timing of Events. 
-R package version 0.2.0. https://github.com/yourusername/este
-```
-
----
 
 
 ## Support
