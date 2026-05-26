@@ -1,32 +1,48 @@
 # ESTE
+
 ESTE is an R package that implements the improved CBN algorithm to estimate the sequence of events and MH-Sampling to estimate the timing of events. This package is specifically designed for cancer genomic data analysis, providing tools for inferring the temporal order of genetic alterations in cancer progression.
 
 ## 1. System Requirements
+
 ### Software Dependencies
+
 - **R**: Version 4.4.1
 - **R Packages**:
   - Rcpp (1.0.12)
   - relations (0.6-13)
   - BH (1.84.0-0)
   - RcppEigen (0.3.4.0.0)
+
 ### Operating Systems
+
 - Linux (Ubuntu 24.04 LTS)
+
 ### Tested Versions
+
 - R 4.4.1 on Ubuntu 24.04
+
 ### Hardware Requirements
+
 - No special hardware requirements
-  
+
 ## 2. Installation Guide
+
 ### Installation Instructions
+
 1. **Install R and required dependencies** :
 2. **Install ESTE package from source**:
 3. **Load the package**:
 
 ## 3. Example
+
 ### Instructions to Run Demo
+
 The package includes example data and scripts in the `example/` and `data/` directory.
+
 ### Dataset
+
 The real dataset is provided in `data/cancer_data/` containing genotype matrices for various cancer types:
+
 - Breast-AdenoCA
 - CNS-GBM  
 - ColoRect-AdenoCA
@@ -36,8 +52,54 @@ The real dataset is provided in `data/cancer_data/` containing genotype matrices
 - Prost-AdenoCA
 - Skin-Melanoma
 - Uterus-AdenoCA
-  
+
 ## 4. Instructions for Use
+
+### Generate Simulated Data
+
+ESTE provides functions to generate simulated genotype data for testing and validation purposes.
+
+```r
+# Load the package
+library(este)
+
+# Generate simulated data
+# Parameters:
+#   numEventArray: Array describing the number of events in each event type
+#   numSampleArray: Array describing the number of samples in each dataset
+#   baseEpsilon: Base error rate
+#   lambdaSampling: Sampling rate parameter
+#   lambdaSamplingScaling: Scaling factor for lambda sampling
+#   epsilonSamplingRate: Rate for epsilon variation
+#   graphDensity: Density of the poset graph
+
+# Example: Generate data with 2 event types (8 events each) and 2 datasets (800 samples each)
+numEventKind <- c(2)  # 2 event types
+numEventPerKind <- c(8)  # 8 events per event types
+numSet <- c(2)  # 2 datasets
+numSamplePerSet <- 800  # 800 samples per dataset
+
+sim_data <- simulation_Data_Generate(
+  numEventArray = rep(numEventPerKind[1], numEventKind),  # Event array
+  numSampleArray = rep(numSamplePerSet, numSet),                     # Sample array
+  baseEpsilon = 0.05,           # Base error rate
+  lambdaSampling = 1,           # Sampling rate
+  lambdaSamplingScaling = 3,    # Lambda scaling factor
+  epsilonSamplingRate = 0.5,    # Epsilon variation rate
+  graphDensity = 0.2            # Poset graph density
+)
+```
+
+**Output Structure**:
+
+- `obs_events`: Matrix of observed genotypes with noise (rows = samples, cols = events)
+- `hidden_genotypes`: True underlying genotypes without noise
+- `poset`: Ground truth partial order matrix
+- `eps`: Error rate matrix (rows = datasets, cols = event types)
+- `lambdas`: Event occurrence rates
+- `T_sampling`: Sampling times
+- `T_events`: Event occurrence times
+
 ### Data Preparation
 
 ESTE requires genotype data in a specific format:
@@ -55,6 +117,7 @@ genotype_data <- read.csv("your_genotype_data.csv", row.names = 1)
 ### Basic Usage Workflow
 
 #### Step 1: Prepare Input Matrices
+
 ```r
 # Define dataset and event set configurations
 setD <- matrix(c(0, nrow(genotype_data)-1), nrow = 1)  # Dataset range
@@ -65,6 +128,7 @@ eps <- matrix(0.05, nrow = 1, ncol = 1)  # Initial epsilon estimate
 ```
 
 #### Step 2: Estimate Error Rates (epsilon)
+
 ```r
 # Fast epsilon estimation
 epsilon_result <- estimate_Epsilon(
@@ -80,6 +144,7 @@ epsilon_result <- estimate_Epsilon(
 ```
 
 #### Step 3: Infer Partial Order (Poset)
+
 ```r
 # Find poset with fine-tuning
 poset_result <- find_Poset(
@@ -96,6 +161,7 @@ poset_result <- find_Poset(
 ```
 
 #### Step 4: Estimate Rate Parameters (lambda)
+
 ```r
 # Estimate lambda using EM algorithm
 lambda_result <- estimate_Lambda(
@@ -112,6 +178,7 @@ lambda_result <- estimate_Lambda(
 ```
 
 #### Step 5: Sample Event Timing (Optional)
+
 ```r
 # MH sampling for event timing estimation
 timing_result <- sample_Age_T(
@@ -129,6 +196,7 @@ timing_result <- sample_Age_T(
 ### Advanced Usage
 
 #### Multiple Datasets and Event Sets
+
 ```r
 # For multi-dataset analysis
 epsilon_multi <- estimate_Epsilon_ForMulti(
@@ -156,6 +224,7 @@ poset_vote <- find_Poset_ForVote(
 ```
 
 #### Compatibility Check
+
 ```r
 # Check if genotypes are compatible with poset
 compatibility <- is_Compatible(
@@ -171,12 +240,14 @@ compatibility <- is_Compatible(
 To reproduce the results from the associated research paper:
 
 ### Step 1: Download Full Dataset
+
 ```bash
 # Download the complete ICGC dataset (if not already present)
 # The dataset should be placed in data/ICGC/ directory
 ```
 
 ### Step 2: Run Analysis Scripts
+
 ```r
 # Load required packages
 library(este)
@@ -198,28 +269,31 @@ source("example/scRNA_Analysis.R")
 
 The following parameters were used in the original analysis:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `Fine_Tune_Num` | 2 | Number of fine-tuning iterations |
-| `threshold` | 0.0001 | Poset inference threshold |
-| `threshold2` | 0.01 | Tolerance threshold |
-| `sampling` | "add-remove" | Hidden genotype sampling method |
-| `maxIter` | 100 | EM algorithm iterations |
-| `L` | 100 | Number of E-step samples |
-| `tol` | 0.001 | Convergence tolerance |
+| Parameter       | Value        | Description                      |
+| --------------- | ------------ | -------------------------------- |
+| `Fine_Tune_Num` | 2            | Number of fine-tuning iterations |
+| `threshold`     | 0.0001       | Poset inference threshold        |
+| `threshold2`    | 0.01         | Tolerance threshold              |
+| `sampling`      | "add-remove" | Hidden genotype sampling method  |
+| `maxIter`       | 100          | EM algorithm iterations          |
+| `L`             | 100          | Number of E-step samples         |
+| `tol`           | 0.001        | Convergence tolerance            |
 
 ### Step 4: Output Interpretation
 
 **Partial Order Matrix**:
+
 - `poset[i,j] = 1` indicates event i must occur before event j
 - Diagonal elements are always 0
 - The matrix represents a directed acyclic graph (DAG)
 
 **Lambda Values**:
+
 - Higher lambda = faster event occurrence
 - Lambda values are relative rates
 
 **Timing Estimates**:
+
 - Estimated time of each event occurrence
 - Relative timing between events indicates progression order
 
@@ -256,36 +330,36 @@ este/
 
 ### Core Functions
 
-| Function | Description |
-|----------|-------------|
-| `estimate_Epsilon()` | Estimate error rates for hidden CBN model |
+| Function                                       | Description                                |
+| ---------------------------------------------- | ------------------------------------------ |
+| `estimate_Epsilon()`                           | Estimate error rates for hidden CBN model  |
 | `estimate_Epsilon_based_on_Poset_and_Lambda()` | Epsilon estimation with known poset/lambda |
-| `estimate_Epsilon_ForMulti()` | Multi-dataset epsilon estimation |
-| `find_Poset()` | Infer partial order from genotype data |
-| `find_Poset_ForVote()` | Consensus poset via voting |
-| `estimate_Lambda()` | Estimate event rate parameters |
-| `estimate_Lambda_ForMulti()` | Multi-dataset lambda estimation |
-| `is_Compatible()` | Check genotype-poset compatibility |
-| `sample_Age_T()` | MH sampling for event timing |
-| `sample_Age_TLW()` | Lightweight timing sampling |
+| `estimate_Epsilon_ForMulti()`                  | Multi-dataset epsilon estimation           |
+| `find_Poset()`                                 | Infer partial order from genotype data     |
+| `find_Poset_ForVote()`                         | Consensus poset via voting                 |
+| `estimate_Lambda()`                            | Estimate event rate parameters             |
+| `estimate_Lambda_ForMulti()`                   | Multi-dataset lambda estimation            |
+| `is_Compatible()`                              | Check genotype-poset compatibility         |
+| `sample_Age_T()`                               | MH sampling for event timing               |
+| `sample_Age_TLW()`                             | Lightweight timing sampling                |
 
 ### Utility Functions
 
-| Function | Description |
-|----------|-------------|
-| `topological_Sort()` | Perform topological sort on poset |
-| `random_Poset()` | Generate random poset structure |
-| `rateTimeHelp()` | Convert lambda to time bounds |
-| `find_most_Compatible_Genotype_by_Flipping()` | Find compatible genotypes |
-| `donor_Pair_Genotype_Filter()` | Filter donor pair genotypes |
-| `GammaCluster()` | Gaussian Mixture Model clustering |
+| Function                                      | Description                       |
+| --------------------------------------------- | --------------------------------- |
+| `topological_Sort()`                          | Perform topological sort on poset |
+| `random_Poset()`                              | Generate random poset structure   |
+| `rateTimeHelp()`                              | Convert lambda to time bounds     |
+| `find_most_Compatible_Genotype_by_Flipping()` | Find compatible genotypes         |
+| `donor_Pair_Genotype_Filter()`                | Filter donor pair genotypes       |
+| `GammaCluster()`                              | Gaussian Mixture Model clustering |
 
 ### Data Generation Functions
 
-| Function | Description |
-|----------|-------------|
-| `simulation_Data_Generate()` | Generate simulated genotype data |
-| `simulation_Time_Data_Generate()` | Generate simulated timing data |
+| Function                          | Description                      |
+| --------------------------------- | -------------------------------- |
+| `simulation_Data_Generate()`      | Generate simulated genotype data |
+| `simulation_Time_Data_Generate()` | Generate simulated timing data   |
 
 ---
 
@@ -300,9 +374,11 @@ R package version 0.2.0. https://github.com/yourusername/este
 
 ---
 
-   
+
 ## Support
+
 For questions and support, contact: Hu Changbao <1437894182@qq.com>
 
 ## License
+
 GPL (≥ 2)
