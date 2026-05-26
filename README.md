@@ -334,9 +334,6 @@ este/
 | `find_Poset_ForVote()`                         | Consensus poset via voting                 |
 | `estimate_Lambda()`                            | Estimate event rate parameters             |
 | `estimate_Lambda_ForMulti()`                   | Multi-dataset lambda estimation            |
-| `is_Compatible()`                              | Check genotype-poset compatibility         |
-| `sample_Age_T()`                               | MH sampling for event timing               |
-| `sample_Age_TLW()`                             | Lightweight timing sampling                |
 
 ### Utility Functions
 
